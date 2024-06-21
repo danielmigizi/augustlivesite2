@@ -19,8 +19,8 @@ window.onload = async () => {
   if (fileInput) {
     fileInput.addEventListener("change", async function () {
       if (this.files && this.files[0]) {
-          const base64String = await readFileAsBase64(this.files[0]);
-          await Wized.data.setVariable("passportImageString", base64String);
+        const base64String = await readFileAsBase64(this.files[0]);
+        await Wized.data.setVariable("passportImageString", base64String);
       }
     });
   }
@@ -43,23 +43,25 @@ window.onload = async () => {
           arrivalDate,
           startDate,
           endDate,
-          "newArrival",
+          "newArrival"
         );
         initializeDatePicker(
           "departure-picker",
           departureDate,
           startDate,
           endDate,
-          "newDeparture",
+          "newDeparture"
         );
       } catch (error) {
         console.error("Error initializing date pickers:", error);
       }
     });
+  } else {
+    console.error('Wized is not defined.');
   }
 };
 
-function initializeDatePicker(elementId, defaultDate, minDate, dataVariable) {
+function initializeDatePicker(elementId, defaultDate, minDate, maxDate, dataVariable) {
   const picker = new easepick.create({
     element: document.getElementById(elementId),
     css: ["https://csb-hrpwdp.netlify.app/augustcalendar.css"],
@@ -67,12 +69,21 @@ function initializeDatePicker(elementId, defaultDate, minDate, dataVariable) {
     format: "DD MMM YYYY",
     LockPlugin: {
       minDate: minDate,
+      maxDate: maxDate // Ensure maxDate is included
     },
     setup(picker) {
       picker.on("select", async (e) => {
         const { date } = e.detail;
         const selectedDate = date.format("YYYY-MM-DD");
-        await Wized.data.setVariable(dataVariable, selectedDate);
+        
+        // Use setTimeout to ensure UI refresh
+        setTimeout(async () => {
+          try {
+            await Wized.data.setVariable(dataVariable, selectedDate);
+          } catch (error) {
+            console.error(`Error updating Wized variable: ${dataVariable}`, error);
+          }
+        }, 0); // Wait for the current execution queue to clear
       });
     },
   });
@@ -80,3 +91,20 @@ function initializeDatePicker(elementId, defaultDate, minDate, dataVariable) {
   picker.gotoDate(defaultDate);
   picker.setDate(defaultDate);
 }
+
+// Calls to initializeDatePicker
+initializeDatePicker(
+  "arrival-picker",
+  arrivalDate,
+  startDate,
+  endDate,
+  "newArrival"
+);
+
+initializeDatePicker(
+  "departure-picker",
+  departureDate,
+  startDate,
+  endDate,
+  "newDeparture"
+);
