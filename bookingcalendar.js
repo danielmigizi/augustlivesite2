@@ -1,3 +1,19 @@
+// Helper function for parsing date while considering UK timezone
+function parseDateAsUKTimezone(dateString) {
+  // Use Intl.DateTimeFormat to parse and convert date to UK time zone
+  const ukTimeZone = 'Europe/London';
+  const date = new Date(dateString);
+  const options = { timeZone: ukTimeZone, year: 'numeric', month: '2-digit', day: '2-digit' };
+
+  // Converting to UK time and then parsing back to Date object
+  const [day, month, year] = new Intl.DateTimeFormat('en-GB', options)
+    .format(date)
+    .split('/')
+    .map(Number);
+
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
 window.onload = async () => {
   function readFileAsBase64(file) {
     if (!file) return null;
@@ -32,16 +48,20 @@ window.onload = async () => {
       const arrival = await Wized.data.get("r.4.d.arrival_date");
       const departure = await Wized.data.get("r.4.d.departure_date");
 
-      const startDate = new Date(checkIn);
-      const endDate = new Date(checkOut);
-      const arrivalDate = new Date(arrival);
-      const departureDate = new Date(departure);
+      // Parse the dates as UK timezone
+      const startDate = parseDateAsUKTimezone(checkIn);
+      const endDate = parseDateAsUKTimezone(checkOut);
+      const arrivalDate = parseDateAsUKTimezone(arrival);
+      const departureDate = parseDateAsUKTimezone(departure);
 
       // Create min and max dates for custom check-in and check-out
       const minCustomCheckInDate = new Date(startDate);
-      minCustomCheckInDate.setDate(minCustomCheckInDate.getDate() + 2);
+      minCustomCheckInDate.setUTCDate(minCustomCheckInDate.getUTCDate() + 1);
       const maxCustomCheckOutDate = new Date(endDate);
-      maxCustomCheckOutDate.setDate(maxCustomCheckOutDate.getDate());
+      maxCustomCheckOutDate.setUTCDate(maxCustomCheckOutDate.getUTCDate() - 1);
+
+      console.log("minCustomCheckInDate UK Time:", minCustomCheckInDate.toISOString());
+      console.log("maxCustomCheckOutDate UK Time:", maxCustomCheckOutDate.toISOString());
 
       // Update the initializeDatePicker function calls
       initializeDatePicker(
@@ -68,35 +88,35 @@ window.onload = async () => {
   } else {
     console.error("Wized is not defined.");
   }
-  
-  function initializeDatePicker(elementId, defaultDate, minDate, maxDate, dataVariable) {
-    const picker = new easepick.create({
-      element: document.getElementById(elementId),
-      css: ["https://csb-hrpwdp.netlify.app/augustcalendar.css"],
-      plugins: ["LockPlugin"],
-      format: "DD MMM YYYY",
-      LockPlugin: {
-        minDate: minDate,
-        maxDate: maxDate // Ensure maxDate is included
-      },
-      setup(picker) {
-        picker.on("select", async (e) => {
-          const { date } = e.detail;
-          const selectedDate = date.format("YYYY-MM-DD");
-          
-          // Use setTimeout to ensure UI refresh
-          setTimeout(async () => {
-            try {
-              await Wized.data.setVariable(dataVariable, selectedDate);
-            } catch (error) {
-              console.error(`Error updating Wized variable: ${dataVariable}`, error);
-            }
-          }, 0); // Wait for the current execution queue to clear
-        });
-      },
-    });
-
-    picker.gotoDate(defaultDate);
-    picker.setDate(defaultDate);
-  }
 };
+
+function initializeDatePicker(elementId, defaultDate, minDate, maxDate, dataVariable) {
+  const picker = new easepick.create({
+    element: document.getElementById(elementId),
+    css: ["https://csb-hrpwdp.netlify.app/augustcalendar.css"],
+    plugins: ["LockPlugin"],
+    format: "DD MMM YYYY",
+    LockPlugin: {
+      minDate: minDate,
+      maxDate: maxDate // Ensure maxDate is included
+    },
+    setup(picker) {
+      picker.on("select", async (e) => {
+        const { date } = e.detail;
+        const selectedDate = date.format("YYYY-MM-DD");
+
+        // Use setTimeout to ensure UI refresh
+        setTimeout(async () => {
+          try {
+            await Wized.data.setVariable(dataVariable, selectedDate);
+          } catch (error) {
+            console.error(`Error updating Wized variable: ${dataVariable}`, error);
+          }
+        }, 0); // Wait for the current execution queue to clear
+      });
+    },
+  });
+
+  picker.gotoDate(defaultDate);
+  picker.setDate(defaultDate);
+}
